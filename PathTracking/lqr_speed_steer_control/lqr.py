@@ -5,6 +5,59 @@ import scipy.linalg as la
 import pathlib
 sys.path.append(str(pathlib.Path(__file__).parent.parent.parent))
 
+np.set_printoptions(precision=3)
+np.set_printoptions(suppress=True)
+np.set_printoptions(formatter={'float': '{: 0.3f}'.format})
+
+class bcolors:
+  # https://godoc.org/github.com/whitedevops/colors
+  DEFAULT = "\033[39m"
+  BLACK = "\033[30m"
+  RED = "\033[31m"
+  GREEN = "\033[32m"
+  YELLOW = "\033[33m"
+  BLUE = "\033[34m"
+  MAGENTA = "\033[35m"
+  CYAN = "\033[36m"
+  LGRAY = "\033[37m"
+  DARKGRAY = "\033[90m"
+  FAIL = "\033[91m"
+  OKGREEN = '\033[92m'
+  WARNING = '\033[93m'
+  OKBLUE = '\033[94m'
+  HEADER = '\033[95m'
+  LIGHTCYAN = '\033[96m'
+  WHITE = "\033[97m"
+
+  ENDC = '\033[0m'
+  BOLD = '\033[1m'
+  DIM = "\033[2m"
+  UNDERLINE = '\033[4m'
+  BLINK = "\033[5m"
+  REVERSE = "\033[7m"
+  HIDDEN = "\033[8m"
+
+  BG_DEFAULT = "\033[49m"
+  BG_BLACK = "\033[40m"
+  BG_RED = "\033[41m"
+  BG_GREEN = "\033[42m"
+  BG_YELLOW = "\033[43m"
+  BG_BLUE = "\033[44m"
+  BG_MAGENTA = "\033[45m"
+  BG_CYAN = "\033[46m"
+  BG_GRAY = "\033[47m"
+  BG_DKGRAY = "\033[100m"
+  BG_LRED = "\033[101m"
+  BG_LGREEN = "\033[102m"
+  BG_LYELLOW = "\033[103m"
+  BG_LBLUE = "\033[104m"
+  BG_LMAGENTA = "\033[105m"
+  BG_LCYAN = "\033[106m"
+  BG_WHITE = "\033[107m"
+
+def print_color_str(s, clr):
+  print(clr + s + bcolors.ENDC)
+
 def angle_mod(x, zero_2_2pi=False, degree=False):
     """
     Angle modulo operation
@@ -279,6 +332,8 @@ def calc_nearest_index3(state, cx, cy, cyaw, a, b):
     if ind is None:
         return -1, 0.0
 
+    print("ind", ind)
+
     mind = math.sqrt(
         (state.x - cx[ind]) ** 2 + (state.y - cy[ind]) ** 2)
 
@@ -286,6 +341,12 @@ def calc_nearest_index3(state, cx, cy, cyaw, a, b):
     dyl = cy[ind] - state.y
 
     angle = pi_2_pi(cyaw[ind] - math.atan2(dyl, dxl))
+    print("closest", cx[ind], cy[ind])
+    print("current", state.x, state.y)
+    print("angle to closest", math.atan2(dyl, dxl))
+    print("goal yaw", cyaw[ind])
+    print("angle", angle)
+    # angle = smallest_diff(cyaw[ind], math.atan2(dyl, dxl))
     if angle < 0:
         mind *= -1
 
@@ -299,6 +360,7 @@ def lqr_speed_steering_control(
     # sp,
     Q, R, L, tv, totalt,
     distance_traveled, cumsums):
+    print("t: %.3f" % (totalt))
     ind, e = calc_nearest_index3(
         state, cx, cy, cyaw, cumsums, distance_traveled)
 
@@ -406,6 +468,14 @@ def lqr_speed_steering_control(
     if state.last_yaw is not None:
         k = smallest_diff(cyaw[ind], state.last_yaw) / dt
 
+        print("x {}".format(x))
+
+        print("controller: %.2f: ((%.3f, %.3f)   (%.3f, %.3f)      (%.3f, %.3f = %.3f)                  %.3f, %.3f -> %.3f" % (
+            totalt,
+            state.yaw, expected_yaw,
+            e, pe,
+            th_e, pth_e, dot_th_e,
+            cyaw[ind], state.last_yaw, k))
     state.last_yaw = cyaw[ind]
 
     ff = math.atan2(L * k, 1)  # feedforward steering angle
@@ -413,10 +483,21 @@ def lqr_speed_steering_control(
     fb = modulo_rad(ustar[0, 0])  # feedback steering angle
     delta = modulo_rad(ff + fb)
 
+    if np.abs(fb) > np.pi / 4:
+        print_color_str("delta %.3f, %.3f -> %.3f" % (
+            ff,
+            fb,
+            delta), bcolors.BG_LCYAN)
+    else:
+        print("delta %.3f, %.3f -> %.3f" % (
+            ff,
+            fb,
+            delta))
+
     # calc accel input
     accel = ustar[1, 0]
 
-    return delta, ind, e, th_e, accel
+    return delta, ind, e, th_e, accel, expected_yaw, fb
 
 # LQR parameters
 

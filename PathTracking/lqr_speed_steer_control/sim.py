@@ -42,8 +42,9 @@ def do_simulation(
     state,
     cx, cy, cyaw,
     # ck, speed_profile,
-    goal):
-    T = 100.0  # max simulation time
+    goal,
+    T,
+    tv):
     goal_dis = 0.3
     stop_speed = 0.05
 
@@ -56,6 +57,13 @@ def do_simulation(
     ais = [0.0]
     t = [0.0]
     travel = [0.0]
+
+    debug1 = [0.0]
+    debug2 = [0.0]
+    debug3 = [0.0]
+    debug4 = [0.0]
+    debug5 = [0.0]
+    debug6 = [0.0]
 
     distances = [] # len(cx) - 1
     cumsums = [0.0] # len(cx)
@@ -74,11 +82,19 @@ def do_simulation(
 
     time = 0.0
     distance_traveled = 0.0
+
+    full_T = dt * len(cx)
+    if T <= 0.0:
+        T = full_T
+        print("updated T: %.3f" % (T))
+    # else:
+        # T = min(T, full_T)
+    print("T!", T)
+
     while T >= time:
-        tv = 0.2 # go slow
         # tv = min(0.2, time * 1) # ramp up to tv
 
-        dl, target_ind, state.e, state.e_th, ai =\
+        dl, target_ind, state.e, state.e_th, ai, expected_yaw, fb =\
             lqr_speed_steering_control(
             state, state.e, state.e_th,
             dt,
@@ -90,7 +106,18 @@ def do_simulation(
 
         distance_traveled += state.v * dt
 
+        dyaw = state.v / L * math.tan(dl) * dt
+
+        old_yaw = state.yaw
+
         state = update(L, state, ai, dl)
+
+        if np.abs(dyaw) > np.pi / 4:
+            print_color_str("yaw update %.3f, (%.3f, %.3f) -> %.3f" % (
+                old_yaw, dl, dyaw, state.yaw), bcolors.BG_RED)
+        else:
+            print("yaw update %.3f, (%.3f, %.3f) -> %.3f" % (
+                old_yaw, dl, dyaw, state.yaw))
 
         if abs(state.v) <= stop_speed:
             target_ind += 1
@@ -117,6 +144,13 @@ def do_simulation(
         t.append(time)
         travel.append(distance_traveled)
 
+        debug1.append(state.e_th)
+        debug2.append(expected_yaw)
+        debug3.append(fb)
+        debug4.append(dyaw)
+        debug5.append(dl)
+        debug6.append(state.e)
+
         print("state.v", state.v)
 
         # if target_ind % 1 == 0 and show_animation:
@@ -134,9 +168,11 @@ def do_simulation(
         #               + ",target index:" + str(target_ind))
         #     plt.pause(0.0001)
 
+        print("")
+
     # import ipdb; ipdb.set_trace()
 
-    return t, x, y, yaw, v, v_msg, w_msg, ais, travel
+    return t, x, y, yaw, v, v_msg, w_msg, ais, travel, debug1, debug2, debug3, debug4, debug5, debug6
 
 
 def calc_speed_profile(cyaw, target_speed):
@@ -204,6 +240,8 @@ def main():
         description='')
     parser.add_argument('file',
         type=str, help='file', default="/home/charlieyan1/Dev/jim/pymap2d/sdf_path_0000220.npy")
+    parser.add_argument('--T',
+        type=float, default=-1.0)
     args = parser.parse_args()
 
     payload = np.load(
@@ -320,13 +358,15 @@ def main():
         yaw=cyaw[0],
         v=0.0)
 
-    t, x, y, yaw, v, v_msg, w_msg, ais, distance_traveled = do_simulation(
+    tv = 0.2
+
+    t, x, y, yaw, v, v_msg, w_msg, ais, distance_traveled, debug1, debug2, debug3, debug4, debug5, debug6 = do_simulation(
         state,
         cx, cy, cyaw,
         # ck, sp,
-        goal)
-
-    # import ipdb; ipdb.set_trace()
+        goal,
+        args.T,
+        tv)
 
     if show_animation:  # pragma: no cover
         plt.close()
@@ -334,32 +374,88 @@ def main():
         plt.plot(ax, ay, "xb", label="waypoints")
         plt.plot(cx, cy, "-r", label="target course")
         plt.plot(x, y, "-g", label="tracking")
+        plt.scatter(ax, ay)
         plt.grid(True)
         plt.axis("equal")
         plt.xlabel("x[m]")
         plt.ylabel("y[m]")
         plt.legend()
 
-        plt.subplots(1)
-        plt.plot(t, v, label="speed")
-        plt.plot(t, v_msg, c='r', label="v_msg")
-        plt.plot(t, w_msg, c='g', label="w_msg")
-        plt.plot(t, ais, c='b', label="ais")
-        # plt.plot(t, distance_traveled, c='b', label="distance_traveled")
-        plt.grid(True)
-        plt.xlabel("Time [sec]")
-        plt.ylabel("Speed [m/s]")
-        plt.legend()
+        plt.title(args.file)
 
-        # plt.subplots(1)
-        # plt.plot(list(range(len(cyaw))), [np.rad2deg(iyaw) for iyaw in cyaw], "-r", label="yaw")
-        # plt.grid(True)
-        # plt.legend()
-        # plt.xlabel("line length[m]")
-        # plt.ylabel("yaw angle[deg]")
+        fig, axs = plt.subplots(2, sharex=True)
+
+        axs[0].plot(t, v, label="speed")
+        axs[0].plot(t, v_msg, c='r', label="v_msg")
+        axs[0].plot(t, w_msg, c='g', label="w_msg")
+        axs[0].plot(t, ais, c='b', label="ais")
+        # axs[0].plot(t, debug1, c='m', label="debug1")
+        # axs[0].plot(t, yaw, c='k', label="yaw")
+
+        # plt.plot(t, distance_traveled, c='b', label="distance_traveled")
+        axs[0].grid(True)
+        # axs[0].xlabel("Time [sec]")
+        # axs[0].ylabel("Speed [m/s]")
+        axs[0].legend()
+
+        axs[1].plot(
+            # [dt * i for i in range(len(cyaw))],
+            # # [np.rad2deg(iyaw) for iyaw in cyaw],
+            # cyaw,
+            t,
+            debug2,
+            "-r",
+            label="expected yaw")
+        axs[1].plot(
+            # list(range(len(cyaw))),
+            # yaw[:len(cyaw)],
+            t,
+            yaw,
+            c='k',
+            label="yaw")
+        axs[1].plot(
+            # list(range(len(cyaw))),
+            # yaw[:len(cyaw)],
+            t,
+            debug1,
+            c='b',
+            label="th_e")
+        axs[1].plot(
+            # list(range(len(cyaw))),
+            # yaw[:len(cyaw)],
+            t,
+            debug3,
+            c='g',
+            label="debug3")
+        axs[1].plot(
+            # list(range(len(cyaw))),
+            # yaw[:len(cyaw)],
+            t,
+            debug4,
+            c='c',
+            label="debug4")
+        axs[1].plot(
+            # list(range(len(cyaw))),
+            # yaw[:len(cyaw)],
+            t,
+            debug5,
+            c='y',
+            label="debug5")
+        axs[1].plot(
+            # list(range(len(cyaw))),
+            # yaw[:len(cyaw)],
+            t,
+            debug6,
+            '*c',
+            label="debug6")
+
+        # plt.plot(list(range(len(cyaw))), debug1, "-r", label="debug1")
+        axs[1].grid(True)
+        axs[1].legend()
+        # axs[1].xlabel("line length[m]")
+        # axs[1].ylabel("yaw angle[deg]")
 
         plt.show()
-
 
 if __name__ == '__main__':
     main()
