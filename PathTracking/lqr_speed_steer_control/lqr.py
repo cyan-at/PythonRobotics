@@ -131,6 +131,24 @@ def dlqr(A, B, Q, R):
 
     return K, X, eig_result[0]
 
+def smallest_diff(a, b):
+    # candidates = np.array([
+    #     a - b,
+    #     a - (b + 2*np.pi),
+    #     a - (b - 2*np.pi)
+    # ])
+    # candidates2 = np.abs(candidates)
+    # return candidates[np.argmin(candidates2)]
+
+    # a = (a + np.pi) % 2*np.pi - np.pi
+    # return a
+
+    # return math.atan2(np.sin(a-b), np.cos(a-b))
+
+    diff = ( np.rad2deg(a) - np.rad2deg(b) + 180 ) % 360 - 180
+    a = diff + 360 if diff < -180 else diff
+    return np.deg2rad(a)
+
 def calc_nearest_index(state, cx, cy, cyaw, a, b):
     dx = [state.x - icx for icx in cx]
     dy = [state.y - icy for icy in cy]
@@ -146,7 +164,8 @@ def calc_nearest_index(state, cx, cy, cyaw, a, b):
     dxl = cx[ind] - state.x
     dyl = cy[ind] - state.y
 
-    angle = pi_2_pi(cyaw[ind] - math.atan2(dyl, dxl))
+    # angle = pi_2_pi(cyaw[ind] - math.atan2(dyl, dxl))
+    angle = smallest_diff(cyaw[ind], math.atan2(dyl, dxl))
     if angle < 0:
         mind *= -1
 
@@ -284,7 +303,20 @@ def lqr_speed_steering_control(
         state, cx, cy, cyaw, cumsums, distance_traveled)
 
     v = state.v
-    th_e = pi_2_pi(state.yaw - cyaw[ind])
+    # th_e = pi_2_pi(state.yaw - cyaw[ind])
+
+    expected_yaw = cyaw[ind]
+
+    # th_e = smallest_diff(
+    #     state.yaw,
+    #     expected_yaw)
+
+    th_e = modulo_rad(state.yaw - expected_yaw)
+
+    # th_e = (state.yaw - cyaw[ind]) % 2*np.pi
+    # th_e = (th_e + 2*np.pi) % 2*np.pi
+
+    # th_e = modulo_rad(state.yaw - cyaw[ind])
 
     # A = [1.0, dt, 0.0, 0.0, 0.0
     #      0.0, 0.0, v, 0.0, 0.0]
@@ -323,7 +355,8 @@ def lqr_speed_steering_control(
     x[0, 0] = e
     x[1, 0] = (e - pe) / dt
     x[2, 0] = th_e
-    x[3, 0] = (th_e - pth_e) / dt
+    dot_th_e = modulo_rad(th_e - pth_e) / dt
+    x[3, 0] = dot_th_e
 
     # print("v!", v)
     # print("tv!")
@@ -340,14 +373,14 @@ def lqr_speed_steering_control(
 
     k = 0.0
     if state.last_yaw is not None:
-        k = (cyaw[ind] - state.last_yaw) / dt
-    # print("k", k, state.last_yaw)
+        k = smallest_diff(cyaw[ind], state.last_yaw) / dt
+
     state.last_yaw = cyaw[ind]
 
     ff = math.atan2(L * k, 1)  # feedforward steering angle
     # ff = 0
-    fb = pi_2_pi(ustar[0, 0])  # feedback steering angle
-    delta = ff + fb
+    fb = modulo_rad(ustar[0, 0])  # feedback steering angle
+    delta = modulo_rad(ff + fb)
 
     # calc accel input
     accel = ustar[1, 0]
