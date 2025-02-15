@@ -353,7 +353,38 @@ def lqr_speed_steering_control(
     # delta_v: difference between current speed and target speed
     x = np.zeros((5, 1))
     x[0, 0] = e
-    x[1, 0] = (e - pe) / dt
+
+    # x[1, 0] = (e - pe) / dt
+    '''
+    when the calc_nearest_index3 sign changes, this can blow up
+    it is reasonable we only care to control the MAGNITUDE of this
+    the signage maybe does not matter (?)
+    x[1, 0] = np.abs(e - pe) / dt
+
+    i.e.
+    ind 297
+    closest 0.3305452202422401 -2.08874005450175
+    current 0.7554259032823595 -1.945941151618235
+    angle to closest -2.817361559602424
+    goal yaw -2.8094245446288317
+    angle 0.007937014973592227
+    x [[ 0.448]
+     [ 17.859]
+     [ 0.454]
+     [-0.171]
+     [-0.000]]
+    controller: 21.85: ((-2.355, -2.809)   (0.448, -0.445)      (0.454, 0.463 = -0.171)                  -2.809, -2.812 -> 0.050
+    delta 0.018, -1.601 -> -1.583
+    yaw update -2.355, (-1.583, 2.239) -> -0.116
+    state.v 0.19977933240264226
+    '''
+    # x[1, 0] = np.abs(e - pe) / dt
+    print("e: %.3f, pe %.3f => %.3f" % (e, pe, x[1, 0]))
+    if (np.sign(e) != np.sign(pe)):
+        print_color_str("SIGN CHANGE!", bcolors.WARNING)
+        normalized_pe = np.sign(e) * np.abs(pe)
+        x[1, 0] = np.abs(e - normalized_pe) / dt
+
     x[2, 0] = th_e
     dot_th_e = modulo_rad(th_e - pth_e) / dt
     x[3, 0] = dot_th_e
