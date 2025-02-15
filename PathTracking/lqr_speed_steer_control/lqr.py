@@ -67,6 +67,23 @@ def angle_mod(x, zero_2_2pi=False, degree=False):
 def pi_2_pi(angle):
     return angle_mod(angle)
 
+def modulo(angle):
+    # // reduce the angle  
+    angle =  angle % 360 
+
+    # // force it to be the positive remainder, so that 0 <= angle < 360  
+    angle = (angle + 360) % 360
+
+    # // force into the minimum absolute value residue class, so that -180 < angle <= 180  
+    if (angle > 180):
+        angle -= 360
+
+    return angle
+
+def modulo_rad(rad):
+    x = modulo(np.rad2deg(rad))
+    return np.deg2rad(x)
+
 class State:
     def __init__(self, x=0.0, y=0.0, yaw=0.0, v=0.0):
         self.x = x
@@ -162,6 +179,62 @@ def interpolate(arr, factor):
         i += 1
     res.append(arr[-1])
     return res
+
+def best_rotation_candidate(a, b):
+    offsets = [
+        0.0,
+        2*np.pi,
+        -2*np.pi
+    ]
+
+    b_candidates = [
+        b,
+        b + 2*np.pi,
+        b - 2*np.pi
+    ]
+
+    candidates = np.array([
+        a - b,
+        a - (b + 2*np.pi),
+        a - (b - 2*np.pi)
+    ])
+    candidates2 = np.abs(candidates)
+
+    return b_candidates[np.argmin(candidates2)], np.min(candidates2), offsets[np.argmin(candidates2)]
+
+def rotation_smooth(rads):
+    if len(rads) == 0:
+        return rads
+
+    modulated = [rads[0]]
+    i = 1
+    offset_stack = 0.0
+
+    while i < len(rads):
+        smoothed_rad, dist, offset = best_rotation_candidate(
+            modulated[i-1], rads[i])
+        dist2 = modulo_rad(rads[i] - modulated[i-1])
+
+        # print(
+        #     "HEY!!!! %.3f vs %.3f = %.3f, %.3f @ %.3f" % (
+        #         modulated[i-1], rads[i],
+        #         dist, dist2,
+        #         smoothed_rad
+        #         )
+        #     )
+
+        if np.abs(dist2 - np.pi / 2) < np.abs(dist2 - np.pi):
+            # print("genuine turn")
+            # modulated.append(rads[i])
+            modulated.append(smoothed_rad)
+        else:
+            # print("wraparound")
+            modulated.append(smoothed_rad)
+
+        i += 1
+
+    return modulated
+
 
 def find_max_index_less_than(arr, num):
     """

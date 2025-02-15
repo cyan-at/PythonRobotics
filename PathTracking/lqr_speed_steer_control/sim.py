@@ -18,6 +18,11 @@ from PathPlanning.CubicSpline import cubic_spline_planner
 
 import argparse
 
+from scipy.spatial.transform import Rotation as R
+from scipy.spatial.transform import Slerp
+
+from spliner import *
+
 show_animation = True
 
 def update(L, state, a, delta):
@@ -189,6 +194,11 @@ def two_d_rvec_vec_from_matrix_2d(m):
 
     return [x, y, atan2], None
 
+def slerp(p0, p1, t):
+    omega = np.arccos(np.dot(p0/np.linalg.norm(p0), p1/np.linalg.norm(p1)))
+    so = np.sin(omega)
+    return np.sin((1.0-t)*omega) / so * p0 + np.sin(t*omega)/so * p1
+
 def main():
     parser = argparse.ArgumentParser(
         description='')
@@ -209,9 +219,13 @@ def main():
     ay = xythetas[:, 1]
     ayaw = xythetas[:, 2]
 
-    cx = ax
-    cy = ay
-    cyaw = ayaw
+    ##########################
+
+    # cx = ax
+    # cy = ay
+    # cyaw = ayaw
+
+    ##########################
 
     # bx, by, byaw, bk, s = cubic_spline_planner.calc_spline_course(
     #     ax, ay, ds=0.1)
@@ -219,17 +233,83 @@ def main():
     # cy = by
     # cyaw = byaw
 
+    ##########################
+
+    cx = interpolate(ax, 40)
+    cy = interpolate(ay, 40)
+
+    # INTERPOATION ROTAIONS SUCKS!
+    cyaw = [(x + np.pi) % (2 * np.pi) - np.pi for x in ayaw]
+    cyaw = rotation_smooth(cyaw)
+    # this is key
+    # interpolating between -3.14 and 3.14 through 0 is spatially wrong
+    cyaw = interpolate(cyaw, 40)
+
+    ##########################
+
+    # key_times = [x * 40* dt for x in range(len(ax))]
+    # key_rots = R.from_euler('z', ayaw, degrees=False)
+    # slerp = Slerp(key_times, key_rots) 
+    # sample_times = np.linspace(0.0, max(key_times), len(cx))
+    # interp_rots = slerp(sample_times)
+    # cyaw = interp_rots.as_euler('xyz', degrees=False)[:, -1]
+    # print(len(cyaw))
+
+    ##########################
+
+    # cx, cy, cyaw, ck, s = cubic_spline_planner.calc_spline_course(
+    #     ax, ay, ds=1.0)
+
+    ##########################
+
+    # velocities = [[0.0, 0.0]]
+    # i = 0
+    # while i < len(ax) - 1:
+    #     dx = ax[i+1] - ax[i]
+    #     dy = ay[i+1] - ay[i]
+    #     velocities.append([dx, dy])
+    #     i += 1
+    # # velocities.append([0.0, 0.0])
+
+    # # import ipdb; ipdb.set_trace()
+
+    # ctrl_pts = [CtrlPt({
+    #     0: np.array([ax[i], ay[i], 0.0]),
+    #     # 1: np.array([velocities[i][0], velocities[i][1], 0.0])
+    #     }) for i in range(len(ax))]
+    # spliner = Spliner() # create a new spliner on each call
+    # s_array, s_data = spliner.process(0, 8, ctrl_pts)
+
+    # order = s_data['order']
+    # num_dof = s_data['num_dof']
+    # time, state = reformat_deriv_major(
+    #     order,
+    #     num_dof,
+    #     s_array,
+    #     s_data)
+    # pos_order = state[0]
+    # cx = pos_order[:, 0]
+    # cy = pos_order[:, 1]
+
+    # plt.plot(ax, ay, "xb", label="waypoints")
+    # plt.plot(cx, cy, "-r", label="target course")
+    # # plt.plot(x, y, "-g", label="tracking")
+    # plt.scatter(ax, ay)
+    # plt.grid(True)
+    # plt.axis("equal")
+    # plt.xlabel("x[m]")
+    # plt.ylabel("y[m]")
+    # plt.legend()
+    # plt.show()
+
     # import ipdb; ipdb.set_trace()
 
-    cx = interpolate(ax, 10)
-    cy = interpolate(ay, 10)
-    cyaw = interpolate(ayaw, 10)
+    ##########################
 
     print("LQR steering control tracking start!!")
     # ax = [0.0, 6.0, 12.5, 10.0, 17.5, 20.0, 25.0]
     # ay = [0.0, -3.0, -5.0, 6.5, 3.0, 0.0, 0.0]
     goal = [cx[-1], cy[-1]]
-
 
     # target_speed = 10.0 / 3.6  # simulation parameter km/h -> m/s
     # sp = calc_speed_profile(cyaw, target_speed)
