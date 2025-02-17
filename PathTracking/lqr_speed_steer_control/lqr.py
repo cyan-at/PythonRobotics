@@ -1,3 +1,7 @@
+'''
+https://atsushisakai.github.io/PythonRobotics/modules/6_path_tracking/lqr_speed_and_steering_control/lqr_speed_and_steering_control.html
+'''
+
 import math
 import sys
 import numpy as np
@@ -252,6 +256,18 @@ def interpolate(arr, factor):
     res.append(arr[-1])
     return res
 
+def do_repeat(arr, factor):
+    res = []
+    i = 0
+    while i < len(arr) - 1:
+        res.extend(
+            np.repeat(arr[i+1], factor)
+        )
+        i += 1
+    res.append(arr[-1])
+    return res
+
+
 def best_rotation_candidate(a, b):
     offsets = [
         0.0,
@@ -327,12 +343,13 @@ def find_max_index_less_than(arr, num):
     max_index_within_limit = valid_indices[np.argmax(arr[valid_indices])]
     return max_index_within_limit
 
-def calc_nearest_index3(state, cx, cy, cyaw, a, b):
+def calc_nearest_index3(state, cx, cy, cyaw, a, b, debug=False):
     ind = find_max_index_less_than(a, b)
     if ind is None:
         return -1, 0.0
 
-    print("ind", ind)
+    if debug:
+        print("ind", ind)
 
     mind = math.sqrt(
         (state.x - cx[ind]) ** 2 + (state.y - cy[ind]) ** 2)
@@ -341,11 +358,14 @@ def calc_nearest_index3(state, cx, cy, cyaw, a, b):
     dyl = cy[ind] - state.y
 
     angle = pi_2_pi(cyaw[ind] - math.atan2(dyl, dxl))
-    print("closest", cx[ind], cy[ind])
-    print("current", state.x, state.y)
-    print("angle to closest", math.atan2(dyl, dxl))
-    print("goal yaw", cyaw[ind])
-    print("angle", angle)
+
+    if debug:
+        print("closest", cx[ind], cy[ind])
+        print("current", state.x, state.y)
+        print("angle to closest", math.atan2(dyl, dxl))
+        print("goal yaw", cyaw[ind])
+        print("angle", angle)
+
     # angle = smallest_diff(cyaw[ind], math.atan2(dyl, dxl))
     if angle < 0:
         mind *= -1
@@ -359,10 +379,12 @@ def lqr_speed_steering_control(
     # ck,
     # sp,
     Q, R, L, tv, totalt,
-    distance_traveled, cumsums):
-    print("t: %.3f" % (totalt))
+    distance_traveled, cumsums, debug=True):
+    if debug:
+        print("t: %.3f" % (totalt))
+
     ind, e = calc_nearest_index3(
-        state, cx, cy, cyaw, cumsums, distance_traveled)
+        state, cx, cy, cyaw, cumsums, distance_traveled, debug=debug)
 
     v = state.v
     # th_e = pi_2_pi(state.yaw - cyaw[ind])
@@ -441,9 +463,11 @@ def lqr_speed_steering_control(
     state.v 0.19977933240264226
     '''
     # x[1, 0] = np.abs(e - pe) / dt
-    print("e: %.3f, pe %.3f => %.3f" % (e, pe, x[1, 0]))
+    if debug:
+        print("e: %.3f, pe %.3f => %.3f" % (e, pe, x[1, 0]))
     if (np.sign(e) != np.sign(pe)):
-        print_color_str("SIGN CHANGE!", bcolors.WARNING)
+        if debug:
+            print_color_str("SIGN CHANGE!", bcolors.WARNING)
         normalized_pe = np.sign(e) * np.abs(pe)
         x[1, 0] = np.abs(e - normalized_pe) / dt
 
@@ -468,14 +492,15 @@ def lqr_speed_steering_control(
     if state.last_yaw is not None:
         k = smallest_diff(cyaw[ind], state.last_yaw) / dt
 
-        print("x {}".format(x))
+        if debug:
+            print("x {}".format(x))
 
-        print("controller: %.2f: ((%.3f, %.3f)   (%.3f, %.3f)      (%.3f, %.3f = %.3f)                  %.3f, %.3f -> %.3f" % (
-            totalt,
-            state.yaw, expected_yaw,
-            e, pe,
-            th_e, pth_e, dot_th_e,
-            cyaw[ind], state.last_yaw, k))
+            print("controller: %.2f: ((%.3f, %.3f)   (%.3f, %.3f)      (%.3f, %.3f = %.3f)                  %.3f, %.3f -> %.3f" % (
+                totalt,
+                state.yaw, expected_yaw,
+                e, pe,
+                th_e, pth_e, dot_th_e,
+                cyaw[ind], state.last_yaw, k))
     state.last_yaw = cyaw[ind]
 
     ff = math.atan2(L * k, 1)  # feedforward steering angle
@@ -484,15 +509,17 @@ def lqr_speed_steering_control(
     delta = modulo_rad(ff + fb)
 
     if np.abs(fb) > np.pi / 4:
-        print_color_str("delta %.3f, %.3f -> %.3f" % (
-            ff,
-            fb,
-            delta), bcolors.BG_LCYAN)
+        if debug:
+            print_color_str("delta %.3f, %.3f -> %.3f" % (
+                ff,
+                fb,
+                delta), bcolors.BG_LCYAN)
     else:
-        print("delta %.3f, %.3f -> %.3f" % (
-            ff,
-            fb,
-            delta))
+        if debug:
+            print("delta %.3f, %.3f -> %.3f" % (
+                ff,
+                fb,
+                delta))
 
     # calc accel input
     accel = ustar[1, 0]

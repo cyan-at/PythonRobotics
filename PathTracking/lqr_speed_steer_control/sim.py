@@ -23,8 +23,6 @@ from scipy.spatial.transform import Slerp
 
 from spliner import *
 
-show_animation = True
-
 def update(L, state, a, delta):
     if delta >= max_steer:
         delta = max_steer
@@ -44,7 +42,9 @@ def do_simulation(
     # ck, speed_profile,
     goal,
     T,
-    tv):
+    tv,
+    args,
+    full_dist):
     goal_dis = 0.3
     stop_speed = 0.05
 
@@ -83,15 +83,21 @@ def do_simulation(
     time = 0.0
     distance_traveled = 0.0
 
-    full_T = dt * len(cx)
-    if T <= 0.0:
-        T = full_T
-        print("updated T: %.3f" % (T))
-    # else:
+    if args.dist <= 0.0:
+        terminate_dist = full_dist
+    else:
         # T = min(T, full_T)
-    print("T!", T)
+        terminate_dist = args.dist
 
-    while T >= time:
+    if args.debug:
+        print("T!", T)
+
+    # import ipdb; ipdb.set_trace()
+
+    total_e = 0.0
+    ticks = 0
+
+    while terminate_dist >= distance_traveled:
         # tv = min(0.2, time * 1) # ramp up to tv
 
         dl, target_ind, state.e, state.e_th, ai, expected_yaw, fb =\
@@ -102,7 +108,7 @@ def do_simulation(
             # ck,
             # speed_profile,
             lqr_Q, lqr_R, L, tv, time,
-            distance_traveled, cumsums)
+            distance_traveled, cumsums, debug=args.debug)
 
         distance_traveled += state.v * dt
 
@@ -112,12 +118,13 @@ def do_simulation(
 
         state = update(L, state, ai, dl)
 
-        if np.abs(dyaw) > np.pi / 4:
-            print_color_str("yaw update %.3f, (%.3f, %.3f) -> %.3f" % (
-                old_yaw, dl, dyaw, state.yaw), bcolors.BG_RED)
-        else:
-            print("yaw update %.3f, (%.3f, %.3f) -> %.3f" % (
-                old_yaw, dl, dyaw, state.yaw))
+        if args.debug:
+            if np.abs(dyaw) > np.pi / 4:
+                print_color_str("yaw update %.3f, (%.3f, %.3f) -> %.3f" % (
+                    old_yaw, dl, dyaw, state.yaw), bcolors.BG_RED)
+            else:
+                print("yaw update %.3f, (%.3f, %.3f) -> %.3f" % (
+                    old_yaw, dl, dyaw, state.yaw))
 
         if abs(state.v) <= stop_speed:
             target_ind += 1
@@ -151,7 +158,8 @@ def do_simulation(
         debug5.append(dl)
         debug6.append(state.e)
 
-        print("state.v", state.v)
+        if args.debug:
+            print("state.v", state.v)
 
         # if target_ind % 1 == 0 and show_animation:
         #     plt.cla()
@@ -168,11 +176,20 @@ def do_simulation(
         #               + ",target index:" + str(target_ind))
         #     plt.pause(0.0001)
 
-        print("")
+        total_e += np.abs(state.e)
+        ticks += 1
+
+        if args.debug:
+            print("")
 
     # import ipdb; ipdb.set_trace()
 
-    return t, x, y, yaw, v, v_msg, w_msg, ais, travel, debug1, debug2, debug3, debug4, debug5, debug6
+    if args.debug:
+        print("total_e", total_e)
+        print("ticks", ticks)
+    rmse = np.sqrt(total_e / ticks)
+
+    return t, x, y, yaw, v, v_msg, w_msg, ais, travel, debug1, debug2, debug3, debug4, debug5, debug6, rmse
 
 
 def calc_speed_profile(cyaw, target_speed):
@@ -240,9 +257,17 @@ def main():
         description='')
     parser.add_argument('file',
         type=str, help='file', default="/home/charlieyan1/Dev/jim/pymap2d/sdf_path_0000220.npy")
-    parser.add_argument('--T',
+    parser.add_argument('--dist',
         type=float, default=-1.0)
+    parser.add_argument('--headless',
+        help="headless, default=False",
+        action='store_true')
+    parser.add_argument('--debug',
+        help="headless, default=False",
+        action='store_true')
     args = parser.parse_args()
+
+    # print("arg.headless", args.headless)
 
     payload = np.load(
         # '/home/charlieyan1/Dev/jim/pymap2d/sdf_path_0000001.npy',
@@ -256,6 +281,9 @@ def main():
     ax = xythetas[:, 0]
     ay = xythetas[:, 1]
     ayaw = xythetas[:, 2]
+
+    r2 = 0.5
+    full_dist = r2 * max(1, len(ax) - 1)
 
     ##########################
 
@@ -276,12 +304,22 @@ def main():
     cx = interpolate(ax, 40)
     cy = interpolate(ay, 40)
 
+    ##########################
+
+    # # INTERPOATION ROTAIONS SUCKS!
+    # cyaw = [(x + np.pi) % (2 * np.pi) - np.pi for x in ayaw]
+    # cyaw = rotation_smooth(cyaw)
+    # # this is key
+    # # interpolating between -3.14 and 3.14 through 0 is spatially wrong
+    # cyaw = interpolate(cyaw, 40)
+
     # INTERPOATION ROTAIONS SUCKS!
     cyaw = [(x + np.pi) % (2 * np.pi) - np.pi for x in ayaw]
     cyaw = rotation_smooth(cyaw)
     # this is key
     # interpolating between -3.14 and 3.14 through 0 is spatially wrong
     cyaw = interpolate(cyaw, 40)
+    # cyaw = do_repeat(cyaw, 40)
 
     ##########################
 
@@ -344,7 +382,7 @@ def main():
 
     ##########################
 
-    print("LQR steering control tracking start!!")
+    # print("LQR steering control tracking start!!")
     # ax = [0.0, 6.0, 12.5, 10.0, 17.5, 20.0, 25.0]
     # ay = [0.0, -3.0, -5.0, 6.5, 3.0, 0.0, 0.0]
     goal = [cx[-1], cy[-1]]
@@ -360,15 +398,19 @@ def main():
 
     tv = 0.2
 
-    t, x, y, yaw, v, v_msg, w_msg, ais, distance_traveled, debug1, debug2, debug3, debug4, debug5, debug6 = do_simulation(
+    t, x, y, yaw, v, v_msg, w_msg, ais, distance_traveled, debug1, debug2, debug3, debug4, debug5, debug6, rmse = do_simulation(
         state,
         cx, cy, cyaw,
         # ck, sp,
         goal,
-        args.T,
-        tv)
+        args.dist,
+        tv,
+        args,
+        full_dist)
 
-    if show_animation:  # pragma: no cover
+    print("RMSE!!! %.3f" % (rmse))
+
+    if not args.headless:  # pragma: no cover
         plt.close()
         plt.subplots(1)
         plt.plot(ax, ay, "xb", label="waypoints")
@@ -381,7 +423,7 @@ def main():
         plt.ylabel("y[m]")
         plt.legend()
 
-        plt.title(args.file)
+        plt.title("%s: RMSE: %.3f" % (args.file, rmse))
 
         fig, axs = plt.subplots(2, sharex=True)
 
