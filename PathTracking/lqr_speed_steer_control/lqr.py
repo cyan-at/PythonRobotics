@@ -346,7 +346,7 @@ def find_max_index_less_than(arr, num):
 def calc_nearest_index3(state, cx, cy, cyaw, a, b, debug=False):
     ind = find_max_index_less_than(a, b)
     if ind is None:
-        return -1, 0.0
+        return 0, 0.0
 
     if debug:
         print("ind", ind)

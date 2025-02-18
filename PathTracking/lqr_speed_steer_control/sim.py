@@ -139,7 +139,7 @@ def do_simulation(
             break
 
         v_msg_i = v_msg[-1] + ai * dt
-        w_msg_i = dl * dt
+        w_msg_i = dyaw
 
         v_msg.append(v_msg_i)
         w_msg.append(w_msg_i)
