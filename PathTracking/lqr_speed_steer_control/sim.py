@@ -192,13 +192,24 @@ def do_simulation(
             lqr_Q, lqr_R, L, tv, time,
             distance_traveled, cumsums, debug=args.debug)
 
+        # print("best_dist_estimate",
+        #     best_dist_estimate,
+        #     best_idx,
+        #     len(cyaw) - 1,
+        #     terminate_dist,
+        #     full_dist)
+
         distance_traveled += state.v * dt
 
         dyaw = state.v / L * math.tan(dl) * dt
 
         old_yaw = state.yaw
 
+        # print("ai", ai)
+
         state = update(L, state, ai, dl)
+
+        # print("after state.v", state.v)
 
         if args.debug:
             if np.abs(dyaw) > np.pi / 4:
@@ -338,7 +349,6 @@ def slerp3(arr, xys, factor):
     res = []
     i = 0
     while i < len(arr) - 1:
-
         diff = arr[i+1] - arr[i]
 
         if (np.abs(diff) < 1e-8):
@@ -354,7 +364,9 @@ def slerp3(arr, xys, factor):
         interp = []
 
         min_t = np.abs(diff) / 0.5
-        min_d = min_t * 0.2
+        min_d = min_t * 0.2 # target_v
+
+        # print("min_d", min_d)
 
         # # sinusoidal interpolation
         # for j in range(factor):
@@ -365,14 +377,14 @@ def slerp3(arr, xys, factor):
 
         distance_traveled = 0.0
         delta = np.abs(distance) / factor
-        print("DELTA", delta)
-        print("min_d", min_d)
+        # print("DELTA", delta)
+        # print("min_d", min_d)
         for j in range(factor):
             distance_traveled += delta
 
             if (distance_traveled + min_d >= distance):
                 alpha = (distance_traveled - (distance - min_d)) / min_d
-                print("ALPHA", alpha)
+                # print("ALPHA", alpha)
                 interp.append(arr[i] + alpha * diff)
             else:
                 interp.append(arr[i])
@@ -390,6 +402,7 @@ def slerp3(arr, xys, factor):
             # np.linspace(arr[i], arr[i+1], factor, endpoint=False)
         )
         i += 1
+
     res.append(arr[-1])
     return res
 
@@ -435,33 +448,70 @@ def main():
     r2 = 0.5
     full_dist = r2 * max(1, len(ax) - 1)
 
+    ##########################
 
-    # # CW
-    # s = 2.0
-    # ax = np.array([
-    #     ax[0],
-    #     ax[0],
-    #     ax[0] + s,
-    #     ax[0] + s,
-    #     ax[0]
-    #     ])
-    # ay = np.array([
-    #     ay[0],
-    #     ay[0] + s,
-    #     ay[0] + s,
-    #     ay[0],
-    #     ay[0]
-    #     ])
+    # square = 2.0
+    # full_dist = square * 4
 
-    # ayaw = np.array([
-    #     np.pi / 2,
-    #     0.0,
-    #     -np.pi / 2,
-    #     np.pi,
-    #     np.pi / 2
-    #     ])
+    '''
+    # CW
+    ax = np.array([
+        ax[0],
+        ax[0],
+        ax[0] + square,
+        ax[0] + square,
+        ax[0]
+        ])
+    ay = np.array([
+        ay[0],
+        ay[0] + square,
+        ay[0] + square,
+        ay[0],
+        ay[0]
+        ])
 
-    # full_dist = s * 4
+    ayaw = np.array([
+        np.pi / 2,
+        0.0,
+        -np.pi / 2,
+        np.pi,
+        np.pi, # note: maintain alignment on last waypoint
+        ])
+    '''
+
+    '''
+    # CCW
+    ax = np.array([
+        ax[0],
+
+        ax[0] + square,
+
+        ax[0] + square,
+
+        ax[0],
+
+        ax[0]
+        ])
+    ay = np.array([
+        ay[0],
+
+        ay[0],
+
+        ay[0] + square,
+
+        ay[0] + square,
+
+        ay[0]
+        ])
+
+    ayaw = np.array([
+        0.0,
+        np.pi / 2,
+        np.pi,
+        -np.pi / 2,
+        -np.pi / 2, # note: maintain alignment on last waypoint
+        ])
+    '''
 
     ##########################
 
@@ -504,6 +554,11 @@ def main():
 
     cyaw = slerp3(cyaw, xys, 40)
     # cyaw = do_repeat(cyaw, 40)
+
+    print("len(cx)", len(cx))
+    print("len(cy)", len(cy))
+    print("len(cyaw)", len(cyaw))
+    print("################################################")
 
     ##########################
 

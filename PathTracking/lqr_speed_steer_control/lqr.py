@@ -178,13 +178,17 @@ def dlqr(A, B, Q, R):
     # ref Bertsekas, p.151
     """
 
-    # first, try to solve the ricatti equation
-    X = solve_dare(A, B, Q, R)
+    try:
 
-    # compute the LQR gain
-    K = la.inv(B.T @ X @ B + R) @ (B.T @ X @ A)
+        # first, try to solve the ricatti equation
+        X = solve_dare(A, B, Q, R)
 
-    eig_result = la.eig(A - B @ K)
+        # compute the LQR gain
+        K = la.inv(B.T @ X @ B + R) @ (B.T @ X @ A)
+
+        eig_result = la.eig(A - B @ K)
+    except Exception as e:
+        import ipdb; ipdb.set_trace()
 
     return K, X, eig_result[0]
 
@@ -206,7 +210,7 @@ def smallest_diff(a, b):
     a = diff + 360 if diff < -180 else diff
     return np.deg2rad(a)
 
-def calc_nearest_index(state, cx, cy, cyaw, a, b):
+def calc_nearest_index(state, cx, cy, cyaw, a, b, debug=False):
     dx = [state.x - icx for icx in cx]
     dy = [state.y - icy for icy in cy]
 
@@ -221,6 +225,8 @@ def calc_nearest_index(state, cx, cy, cyaw, a, b):
     dxl = cx[ind] - state.x
     dyl = cy[ind] - state.y
 
+    # print("IND", ind, len(cyaw))
+
     # angle = pi_2_pi(cyaw[ind] - math.atan2(dyl, dxl))
     angle = smallest_diff(cyaw[ind], math.atan2(dyl, dxl))
     if angle < 0:
@@ -228,7 +234,7 @@ def calc_nearest_index(state, cx, cy, cyaw, a, b):
 
     return ind, mind
 
-def calc_nearest_index2(state, cx, cy, cyaw, a, b):
+def calc_nearest_index2(state, cx, cy, cyaw, a, b, debug=False):
     ind = min(int(b // a), len(cx) - 1)
 
     mind = math.sqrt(
@@ -266,7 +272,6 @@ def do_repeat(arr, factor):
         i += 1
     res.append(arr[-1])
     return res
-
 
 def best_rotation_candidate(a, b):
     offsets = [
@@ -322,7 +327,6 @@ def rotation_smooth(rads):
         i += 1
 
     return modulated
-
 
 def find_max_index_less_than(arr, num):
     """
@@ -410,6 +414,7 @@ def lqr_speed_steering_control(
     best_dist_estimate = cumsums[ind]
 
     v = state.v
+    # print("state.v", v)
     # th_e = pi_2_pi(state.yaw - cyaw[ind])
 
     expected_yaw = cyaw[ind]
@@ -418,6 +423,9 @@ def lqr_speed_steering_control(
     #     state.yaw,
     #     expected_yaw)
 
+    # print("ind", ind, len(cyaw))
+    # print("state.yaw", state.yaw)
+    # print("expected_yaw", expected_yaw)
     th_e = modulo_rad(state.yaw - expected_yaw)
 
     # th_e = (state.yaw - cyaw[ind]) % 2*np.pi
@@ -502,6 +510,9 @@ def lqr_speed_steering_control(
     # print("tv!")
     x[4, 0] = v - tv
 
+    # print("K", K)
+    # print("x", x)
+
     # input vector
     # u = [delta, accel]
     # delta: steering angle
@@ -547,9 +558,10 @@ def lqr_speed_steering_control(
     # calc accel input
     accel = ustar[1, 0]
 
-    return delta, ind, e, th_e, accel, expected_yaw, fb
+    # print("ustar", ustar)
 
     return delta, ind, e, th_e, accel, expected_yaw, fb, best_dist_estimate, ind
+
 # LQR parameters
 
 # state vector
