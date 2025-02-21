@@ -372,6 +372,27 @@ def calc_nearest_index3(state, cx, cy, cyaw, a, b, debug=False):
 
     return ind, mind
 
+def calc_nearest_index_hybrid13(state, cx, cy, cyaw, a, b, debug=False):
+    ind1, e1 = calc_nearest_index(
+        state, cx, cy, cyaw, a, b, debug=debug)
+
+    ind2, e2 = calc_nearest_index3(
+        state, cx, cy, cyaw, a, b, debug=debug)
+
+    # import ipdb; ipdb.set_trace()
+
+    # ind1 might be AHEAD of ind2
+    # because the closest item is farther from start
+    # than the travel
+    if (ind1 > ind2):
+        # print("ahead (%d, %.3f) vs (%d, %.3f)" % (ind1, e1, ind2, e2))
+        return ind1, e1
+    else:
+        # print("BEHIND!!!")
+        pass
+
+    return ind2, e2
+
 def lqr_speed_steering_control(
     state,
     pe, pth_e, dt,
@@ -383,8 +404,10 @@ def lqr_speed_steering_control(
     if debug:
         print("t: %.3f" % (totalt))
 
-    ind, e = calc_nearest_index3(
+    ind, e = calc_nearest_index_hybrid13(
         state, cx, cy, cyaw, cumsums, distance_traveled, debug=debug)
+
+    best_dist_estimate = cumsums[ind]
 
     v = state.v
     # th_e = pi_2_pi(state.yaw - cyaw[ind])
@@ -526,6 +549,7 @@ def lqr_speed_steering_control(
 
     return delta, ind, e, th_e, accel, expected_yaw, fb
 
+    return delta, ind, e, th_e, accel, expected_yaw, fb, best_dist_estimate, ind
 # LQR parameters
 
 # state vector

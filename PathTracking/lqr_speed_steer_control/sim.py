@@ -156,9 +156,12 @@ def do_simulation(
 
     time = 0.0
     distance_traveled = 0.0
+    best_dist_estimate = 0.0
+    best_idx = 0
 
     if args.dist <= 0.0:
-        terminate_dist = full_dist
+        terminate_dist = cumsums[-2]
+        # not -1, because at -1, the nearest_idx might be the path start
     else:
         # T = min(T, full_T)
         terminate_dist = args.dist
@@ -174,10 +177,12 @@ def do_simulation(
     total_e = 0.0
     ticks = 0
 
-    while terminate_dist >= distance_traveled:
+    while terminate_dist > best_dist_estimate:
+
+    # while best_idx != len(cyaw) - 2:
         # tv = min(0.2, time * 1) # ramp up to tv
 
-        dl, target_ind, state.e, state.e_th, ai, expected_yaw, fb =\
+        dl, target_ind, state.e, state.e_th, ai, expected_yaw, fb, best_dist_estimate, best_idx =\
             lqr_speed_steering_control(
             state, state.e, state.e_th,
             dt,
@@ -336,6 +341,13 @@ def slerp3(arr, xys, factor):
 
         diff = arr[i+1] - arr[i]
 
+        if (np.abs(diff) < 1e-8):
+            res.extend(
+                np.linspace(arr[i], arr[i+1], factor, endpoint=False)
+            )
+            i += 1
+            continue
+
         # import ipdb; ipdb.set_trace()
         distance = np.linalg.norm(xys[i+1] - xys[i], ord=2)
 
@@ -416,7 +428,7 @@ def main():
     # ayaw = xythetas[:, 2]
     # this, in combination with slerp3
     ayaw = list(xythetas[1:, 2])
-    ayaw.append(xythetas[-1, 2])
+    ayaw.append(xythetas[-1, 2]) # note: maintain alignment on last waypoint
 
     # import ipdb; ipdb.set_trace()
 
