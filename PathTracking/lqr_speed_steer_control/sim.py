@@ -38,20 +38,22 @@ def two_d_make_x_y_theta_hom(x, y, theta):
     hom[1, 2] = y
     return hom
 
-def plot_line(ax, a, b, mode, color, linewidth):
+def plot_line(ax, a, b, mode, color, linewidth, alpha=0.2):
     if mode == 3:
         ax.plot(
             [a[0], b[0]],
             [a[1], b[1]],
             [a[2], b[2]],
             color=color,
-            linewidth=linewidth)
+            linewidth=linewidth,
+            alpha=alpha)
     elif mode == 2:
         ax.plot(
             [a[0], b[0]],
             [a[1], b[1]],
             color=color,
-            linewidth=linewidth)
+            linewidth=linewidth,
+            alpha=alpha)
 
 def plot_gnomon(ax, g, mode=3, length=0.1, linewidth=5, c=None, offset = 0.0):
     '''
@@ -405,9 +407,14 @@ def main():
     all_homs = payload['path']
     xythetas = np.array(
         [two_d_rvec_vec_from_matrix_2d(x)[0] for x in all_homs])
+
     ax = xythetas[:, 0]
     ay = xythetas[:, 1]
+
+    # this is #important, the key is to set the yaw
+    # for a wpt to align with the next path segment
     # ayaw = xythetas[:, 2]
+    # this, in combination with slerp3
     ayaw = list(xythetas[1:, 2])
     ayaw.append(xythetas[-1, 2])
 
@@ -417,32 +424,32 @@ def main():
     full_dist = r2 * max(1, len(ax) - 1)
 
 
-    # CW
-    s = 2.0
-    ax = np.array([
-        ax[0],
-        ax[0],
-        ax[0] + s,
-        ax[0] + s,
-        ax[0]
-        ])
-    ay = np.array([
-        ay[0],
-        ay[0] + s,
-        ay[0] + s,
-        ay[0],
-        ay[0]
-        ])
+    # # CW
+    # s = 2.0
+    # ax = np.array([
+    #     ax[0],
+    #     ax[0],
+    #     ax[0] + s,
+    #     ax[0] + s,
+    #     ax[0]
+    #     ])
+    # ay = np.array([
+    #     ay[0],
+    #     ay[0] + s,
+    #     ay[0] + s,
+    #     ay[0],
+    #     ay[0]
+    #     ])
 
-    ayaw = np.array([
-        np.pi / 2,
-        0.0,
-        -np.pi / 2,
-        np.pi,
-        np.pi / 2
-        ])
+    # ayaw = np.array([
+    #     np.pi / 2,
+    #     0.0,
+    #     -np.pi / 2,
+    #     np.pi,
+    #     np.pi / 2
+    #     ])
 
-    full_dist = s * 4
+    # full_dist = s * 4
 
     ##########################
 
