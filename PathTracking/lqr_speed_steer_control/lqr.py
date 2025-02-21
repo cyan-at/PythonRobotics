@@ -542,8 +542,9 @@ lqr_Q = np.eye(5)
 lqr_Q[1, 1] = 0.0
 # lqr_Q[2, 2] = 0.5
 lqr_Q[3, 3] = 0.1
-
 lqr_Q[4, 4] = 0.1 # speed de-prioritized vs position
+
+# lqr_Q[2, 2] = 5e-3
 
 lqr_R = np.eye(2)
 # lqr_R[0, 0] = 1.0

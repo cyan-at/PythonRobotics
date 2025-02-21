@@ -14,14 +14,86 @@ from lqr import *
 
 import matplotlib.pyplot as plt
 
-from PathPlanning.CubicSpline import cubic_spline_planner
+# from PathPlanning.CubicSpline import cubic_spline_planner
 
 import argparse
 
-from scipy.spatial.transform import Rotation as R
-from scipy.spatial.transform import Slerp
+# from scipy.spatial.transform import Rotation as R
+# from scipy.spatial.transform import Slerp
 
-from spliner import *
+# from spliner import *
+
+def two_d_make_x_y_theta_hom(x, y, theta):
+    hom = np.eye(3)
+
+    theta = theta % (2 * np.pi)
+    # 2019-08-02 parentheses!!!
+
+    hom[0, 0] = np.cos(theta)
+    hom[0, 1] = -np.sin(theta)
+    hom[1, 0] = np.sin(theta)
+    hom[1, 1] = np.cos(theta)
+
+    hom[0, 2] = x
+    hom[1, 2] = y
+    return hom
+
+def plot_line(ax, a, b, mode, color, linewidth):
+    if mode == 3:
+        ax.plot(
+            [a[0], b[0]],
+            [a[1], b[1]],
+            [a[2], b[2]],
+            color=color,
+            linewidth=linewidth)
+    elif mode == 2:
+        ax.plot(
+            [a[0], b[0]],
+            [a[1], b[1]],
+            color=color,
+            linewidth=linewidth)
+
+def plot_gnomon(ax, g, mode=3, length=0.1, linewidth=5, c=None, offset = 0.0):
+    '''
+    mode is dimension of 'canvas'
+    '''
+    if (mode == 3):
+        o = g.dot(np.array([offset, offset, 0.0, 1.0]))
+    elif (mode == 2):
+        o = g.dot(np.array([offset, offset, 1.0]))
+
+    if (mode == 3):
+        x = g.dot(np.array([length*1 + offset, offset, 0.0, 1.0]))
+        if c is not None:
+            plot_line(ax, o, x, mode, c, linewidth)
+        else:
+            plot_line(ax, o, x, mode, 'r', linewidth)
+    elif (mode == 2):
+        x = g.dot(np.array([length*1 + offset, offset, 1.0]))
+        if c is not None:
+            plot_line(ax, o, x, mode, c, linewidth)
+        else:
+            plot_line(ax, o, x, mode, 'r', linewidth)
+
+    if (mode == 3):
+        y = g.dot(np.array([offset, length*2 + offset, 0.0, 1.0]))
+        if c is not None:
+            plot_line(ax, o, y, mode, c, linewidth)
+        else:
+            plot_line(ax, o, y, mode, 'g', linewidth)
+    elif (mode == 2):
+        y = g.dot(np.array([offset, length*2 + offset, 1.0]))
+        if c is not None:
+            plot_line(ax, o, y, mode, c, linewidth)
+        else:
+            plot_line(ax, o, y, mode, 'g', linewidth)
+
+    if (mode == 3):
+        z = g.dot(np.array([offset, 0.0, length*3 + offset, 1.0]))
+        if c is not None:
+            plot_line(ax, o, z, mode, c, linewidth)
+        else:
+            plot_line(ax, o, z, mode, 'b', linewidth)
 
 def update(L, state, a, delta):
     if delta >= max_steer:
@@ -92,6 +164,9 @@ def do_simulation(
     if args.debug:
         print("T!", T)
 
+    print("terminate_dist", terminate_dist)
+    print("distance_traveled", distance_traveled)
+
     # import ipdb; ipdb.set_trace()
 
     total_e = 0.0
@@ -134,9 +209,9 @@ def do_simulation(
         # check goal
         dx = state.x - goal[0]
         dy = state.y - goal[1]
-        if math.hypot(dx, dy) <= goal_dis:
-            print("Goal")
-            break
+        # if math.hypot(dx, dy) <= goal_dis:
+        #     print("Goal")
+        #     break
 
         v_msg_i = v_msg[-1] + ai * dt
         w_msg_i = dyaw
@@ -189,7 +264,7 @@ def do_simulation(
         print("ticks", ticks)
     rmse = np.sqrt(total_e / ticks)
 
-    return t, x, y, yaw, v, v_msg, w_msg, ais, travel, debug1, debug2, debug3, debug4, debug5, debug6, rmse
+    return t, x, y, yaw, v, v_msg, w_msg, ais, travel, debug1, debug2, debug3, debug4, debug5, debug6, rmse, terminate_dist
 
 
 def calc_speed_profile(cyaw, target_speed):
@@ -252,6 +327,58 @@ def slerp(p0, p1, t):
     so = np.sin(omega)
     return np.sin((1.0-t)*omega) / so * p0 + np.sin(t*omega)/so * p1
 
+def slerp3(arr, xys, factor):
+    res = []
+    i = 0
+    while i < len(arr) - 1:
+
+        diff = arr[i+1] - arr[i]
+
+        # import ipdb; ipdb.set_trace()
+        distance = np.linalg.norm(xys[i+1] - xys[i], ord=2)
+
+        interp = []
+
+        min_t = np.abs(diff) / 0.5
+        min_d = min_t * 0.2
+
+        # # sinusoidal interpolation
+        # for j in range(factor):
+        #     k = j / float(factor) # will never hit 1.0
+        #     a = 1-np.cos(np.pi*k)
+        #     v = arr[i] + diff * a
+        #     interp.append(v)
+
+        distance_traveled = 0.0
+        delta = np.abs(distance) / factor
+        print("DELTA", delta)
+        print("min_d", min_d)
+        for j in range(factor):
+            distance_traveled += delta
+
+            if (distance_traveled + min_d >= distance):
+                alpha = (distance_traveled - (distance - min_d)) / min_d
+                print("ALPHA", alpha)
+                interp.append(arr[i] + alpha * diff)
+            else:
+                interp.append(arr[i])
+
+
+            # if j < factor * 0.9:
+            #     interp.append(arr[i])
+
+            # else:
+            #     v = arr[i+1]
+            #     interp.append(v)
+
+        res.extend(
+            interp
+            # np.linspace(arr[i], arr[i+1], factor, endpoint=False)
+        )
+        i += 1
+    res.append(arr[-1])
+    return res
+
 def main():
     parser = argparse.ArgumentParser(
         description='')
@@ -280,10 +407,42 @@ def main():
         [two_d_rvec_vec_from_matrix_2d(x)[0] for x in all_homs])
     ax = xythetas[:, 0]
     ay = xythetas[:, 1]
-    ayaw = xythetas[:, 2]
+    # ayaw = xythetas[:, 2]
+    ayaw = list(xythetas[1:, 2])
+    ayaw.append(xythetas[-1, 2])
+
+    # import ipdb; ipdb.set_trace()
 
     r2 = 0.5
     full_dist = r2 * max(1, len(ax) - 1)
+
+
+    # CW
+    s = 2.0
+    ax = np.array([
+        ax[0],
+        ax[0],
+        ax[0] + s,
+        ax[0] + s,
+        ax[0]
+        ])
+    ay = np.array([
+        ay[0],
+        ay[0] + s,
+        ay[0] + s,
+        ay[0],
+        ay[0]
+        ])
+
+    ayaw = np.array([
+        np.pi / 2,
+        0.0,
+        -np.pi / 2,
+        np.pi,
+        np.pi / 2
+        ])
+
+    full_dist = s * 4
 
     ##########################
 
@@ -298,6 +457,10 @@ def main():
     # cx = bx
     # cy = by
     # cyaw = byaw
+
+    ##########################
+
+    # import ipdb; ipdb.set_trace()
 
     ##########################
 
@@ -318,7 +481,9 @@ def main():
     cyaw = rotation_smooth(cyaw)
     # this is key
     # interpolating between -3.14 and 3.14 through 0 is spatially wrong
-    cyaw = interpolate(cyaw, 40)
+    xys = [np.array([ax[i], ay[i]]) for i in range(len(ax))]
+
+    cyaw = slerp3(cyaw, xys, 40)
     # cyaw = do_repeat(cyaw, 40)
 
     ##########################
@@ -398,7 +563,7 @@ def main():
 
     tv = 0.2
 
-    t, x, y, yaw, v, v_msg, w_msg, ais, distance_traveled, debug1, debug2, debug3, debug4, debug5, debug6, rmse = do_simulation(
+    t, x, y, yaw, v, v_msg, w_msg, ais, distance_traveled, debug1, debug2, debug3, debug4, debug5, debug6, rmse, terminate_dist = do_simulation(
         state,
         cx, cy, cyaw,
         # ck, sp,
@@ -412,18 +577,32 @@ def main():
 
     if not args.headless:  # pragma: no cover
         plt.close()
-        plt.subplots(1)
+
+        fig, a = plt.subplots(1)
         plt.plot(ax, ay, "xb", label="waypoints")
         plt.plot(cx, cy, "-r", label="target course")
         plt.plot(x, y, "-g", label="tracking")
         plt.scatter(ax, ay)
+
+        for i in range(len(ax)):
+            hom = two_d_make_x_y_theta_hom(ax[i], ay[i], ayaw[i])
+            plot_gnomon(a, hom, mode=2, length=0.1, linewidth=2, c='b')
+
+        for i in range(len(cx)):
+            # print("xyyaw", cx[i], cy[i], cyaw[i])
+            hom = two_d_make_x_y_theta_hom(cx[i], cy[i], cyaw[i])
+            plot_gnomon(a, hom, mode=2, length=0.05, linewidth=1)
+
         plt.grid(True)
         plt.axis("equal")
         plt.xlabel("x[m]")
         plt.ylabel("y[m]")
         plt.legend()
 
-        plt.title("%s: RMSE: %.3f" % (args.file, rmse))
+        plt.title("%s: RMSE: %.3f, dist: %.3f" % (
+            args.file,
+            rmse,
+            terminate_dist))
 
         fig, axs = plt.subplots(2, sharex=True)
 
