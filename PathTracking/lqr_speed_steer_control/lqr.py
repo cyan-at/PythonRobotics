@@ -389,11 +389,12 @@ def calc_nearest_index_hybrid13(state, cx, cy, cyaw, a, b, debug=False):
     # because the closest item is farther from start
     # than the travel
     if (ind1 > ind2):
-        # print("ahead (%d, %.3f) vs (%d, %.3f)" % (ind1, e1, ind2, e2))
+        if debug:
+            print("ahead (%d, %.3f) vs (%d, %.3f), state=(%.3f, %.3f)" % (ind1, e1, ind2, e2, state.x, state.y))
         return ind1, e1
     else:
-        # print("BEHIND!!!")
-        pass
+        if debug:
+            print("behind (%d, %.3f) vs (%d, %.3f), state=(%.3f, %.3f)" % (ind1, e1, ind2, e2, state.x, state.y))
 
     return ind2, e2
 
