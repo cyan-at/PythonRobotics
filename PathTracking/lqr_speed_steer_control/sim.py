@@ -543,7 +543,10 @@ def main():
 
     # INTERPOATION ROTAIONS SUCKS!
     cyaw = [(x + np.pi) % (2 * np.pi) - np.pi for x in ayaw]
-    cyaw = rotation_smooth(cyaw)
+    cyaw = rotation_smooth(cyaw, args.debug)
+
+    # import ipdb; ipdb.set_trace()
+
     # this is key
     # interpolating between -3.14 and 3.14 through 0 is spatially wrong
     xys = [np.array([ax[i], ay[i]]) for i in range(len(ax))]

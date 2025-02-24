@@ -296,7 +296,7 @@ def best_rotation_candidate(a, b):
 
     return b_candidates[np.argmin(candidates2)], np.min(candidates2), offsets[np.argmin(candidates2)]
 
-def rotation_smooth(rads):
+def rotation_smooth(rads, debug=False):
     if len(rads) == 0:
         return rads
 
@@ -305,8 +305,22 @@ def rotation_smooth(rads):
     offset_stack = 0.0
 
     while i < len(rads):
+        if debug:
+            print("offset_stack", offset_stack)
+            print("modulated[-1]", modulated[-1])
+
+        cand = rads[i] + offset_stack
         smoothed_rad, dist, offset = best_rotation_candidate(
-            modulated[i-1], rads[i])
+            modulated[i-1], cand)
+        modulated.append(smoothed_rad)
+
+        if debug:
+            print("rads[i]", rads[i], cand)
+            print("offset", offset)
+            print("smoothed_rad", smoothed_rad)
+            print("")
+
+        '''
         dist2 = modulo_rad(rads[i] - modulated[i-1])
 
         # print(
@@ -324,8 +338,11 @@ def rotation_smooth(rads):
         else:
             # print("wraparound")
             modulated.append(smoothed_rad)
+        '''
 
         i += 1
+
+        offset_stack += offset
 
     return modulated
 
