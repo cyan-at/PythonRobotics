@@ -225,12 +225,13 @@ def calc_nearest_index(state, cx, cy, cyaw, a, b, debug=False):
     dxl = cx[ind] - state.x
     dyl = cy[ind] - state.y
 
-    # print("IND", ind, len(cyaw))
-
     # angle = pi_2_pi(cyaw[ind] - math.atan2(dyl, dxl))
     angle = smallest_diff(cyaw[ind], math.atan2(dyl, dxl))
     if angle < 0:
         mind *= -1
+
+    if debug:
+        print("calc_nearest_index", ind, cyaw[ind])
 
     return ind, mind
 
@@ -423,11 +424,12 @@ def lqr_speed_steering_control(
     # th_e = smallest_diff(
     #     state.yaw,
     #     expected_yaw)
-
-    # print("ind", ind, len(cyaw))
-    # print("state.yaw", state.yaw)
-    # print("expected_yaw", expected_yaw)
     th_e = modulo_rad(state.yaw - expected_yaw)
+
+    if debug:
+        print("state.yaw", state.yaw)
+        print("expected_yaw", expected_yaw)
+        print("th_e", th_e)
 
     # th_e = (state.yaw - cyaw[ind]) % 2*np.pi
     # th_e = (th_e + 2*np.pi) % 2*np.pi

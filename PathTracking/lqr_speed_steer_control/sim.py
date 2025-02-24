@@ -166,11 +166,7 @@ def do_simulation(
         # T = min(T, full_T)
         terminate_dist = args.dist
 
-    if args.debug:
-        print("T!", T)
-
     print("terminate_dist", terminate_dist)
-    print("distance_traveled", distance_traveled)
 
     # import ipdb; ipdb.set_trace()
 
@@ -555,10 +551,11 @@ def main():
     cyaw = slerp3(cyaw, xys, 40)
     # cyaw = do_repeat(cyaw, 40)
 
-    print("len(cx)", len(cx))
-    print("len(cy)", len(cy))
-    print("len(cyaw)", len(cyaw))
-    print("################################################")
+    if args.debug:
+        print("len(cx)", len(cx))
+        print("len(cy)", len(cy))
+        print("len(cyaw)", len(cyaw))
+        print("################################################")
 
     ##########################
 
@@ -721,28 +718,28 @@ def main():
             t,
             debug3,
             c='g',
-            label="debug3")
+            label="fb")
         axs[1].plot(
             # list(range(len(cyaw))),
             # yaw[:len(cyaw)],
             t,
             debug4,
             c='c',
-            label="debug4")
+            label="dyaw")
         axs[1].plot(
             # list(range(len(cyaw))),
             # yaw[:len(cyaw)],
             t,
             debug5,
             c='y',
-            label="debug5")
+            label="dl")
         axs[1].plot(
             # list(range(len(cyaw))),
             # yaw[:len(cyaw)],
             t,
             debug6,
             '*c',
-            label="debug6")
+            label="state.e")
 
         # plt.plot(list(range(len(cyaw))), debug1, "-r", label="debug1")
         axs[1].grid(True)
