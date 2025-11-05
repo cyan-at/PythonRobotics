@@ -427,7 +427,10 @@ def lqr_speed_steering_control(
     if debug:
         print("t: %.3f" % (totalt))
 
-    ind, e = calc_nearest_index_hybrid13(
+    # ind, e = calc_nearest_index_hybrid13(
+    #     state, cx, cy, cyaw, cumsums, distance_traveled, debug=debug)
+
+    ind, e = calc_nearest_index3(
         state, cx, cy, cyaw, cumsums, distance_traveled, debug=debug)
 
     best_dist_estimate = cumsums[ind]
